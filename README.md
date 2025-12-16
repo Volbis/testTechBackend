@@ -23,16 +23,17 @@
 
 > **Contexte :** API développée dans le cadre d'un test technique
 
-Cette API REST permet de gérer un système d'utilisateurs et leurs transactions associées avec validation automatique des données et gestion complète des erreurs.
+Cette API REST permet de gérer un système de transfert d'argent entre utilisateurs avec validation automatique des soldes et gestion complète des transactions.
 
 ### Fonctionnalités
 
-- **Gestion des utilisateurs** : Création et consultation avec validation d'email unique
-- **Gestion des transactions** : Création et consultation avec relations utilisateur
+- **Gestion des utilisateurs** : Création, consultation avec validation d'email unique et suivi des soldes
+- **Système de transfert** : Transfert d'argent entre deux comptes avec débit/crédit automatique
+- **Validation des soldes** : Vérification automatique de la disponibilité des fonds
+- **Transactions atomiques** : Garantie d'intégrité des opérations (débit + crédit simultanés)
 - **Validation automatique** : Contrôle des données avec class-validator
-- **Gestion des erreurs** : Réponses HTTP standardisées
-- **Relations** : Liaison automatique entre utilisateurs et transactions
-- **Filtrage avancé** : Consultation par utilisateur
+- **Gestion des erreurs** : Réponses HTTP standardisées avec messages explicites
+- **Filtrage avancé** : Consultation des transferts par utilisateur (envoyés et reçus)
 
 ---
 
@@ -174,19 +175,19 @@ npm run start:dev
 <tr>
 <td><code>POST</code></td>
 <td><code>/transactions</code></td>
-<td>Créer une transaction</td>
+<td>Effectuer un transfert</td>
 <td>Requis</td>
 </tr>
 <tr>
 <td><code>GET</code></td>
 <td><code>/transactions</code></td>
-<td>Liste toutes les transactions</td>
+<td>Liste tous les transferts</td>
 <td>-</td>
 </tr>
 <tr>
 <td><code>GET</code></td>
 <td><code>/transactions?userId=1</code></td>
-<td>Transactions d'un utilisateur</td>
+<td>Transferts d'un utilisateur (envoyés + reçus)</td>
 <td>-</td>
 </tr>
 </tbody>
@@ -201,9 +202,10 @@ npm run start:dev
 curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Jean Dupont",
-    "email": "jean.dupont@example.com",
-    "phone": "+33612345678"
+    "name": "Alice Martin",
+    "email": "alice.martin@example.com",
+    "phone": "+2250701234567",
+    "balance": 1000
   }'
 ```
 
@@ -211,15 +213,16 @@ curl -X POST http://localhost:3000/users \
 ```json
 {
   "id": 1,
-  "name": "Jean Dupont",
-  "email": "jean.dupont@example.com",
-  "phone": "+33612345678"
+  "name": "Alice Martin",
+  "email": "alice.martin@example.com",
+  "phone": "+2250701234567",
+  "balance": 1000
 }
 ```
 </details>
 
 <details>
-<summary><b>Créer une transaction</b></summary>
+<summary><b>Effectuer un transfert</b></summary>
 
 ```bash
 curl -X POST http://localhost:3000/transactions \
@@ -227,33 +230,109 @@ curl -X POST http://localhost:3000/transactions \
   -d '{
     "amount": 150.50,
     "status": "completed",
-    "date": "2025-12-16T17:45:00Z",
-    "userId": 1
+    "date": "2025-12-16T20:30:00Z",
+    "senderId": 1,
+    "receiverId": 2
   }'
 ```
 
-**Réponse (201) :**
+**Réponse (201) - Transfert réussi :**
 ```json
 {
   "id": 1,
   "amount": 150.50,
   "status": "completed",
-  "date": "2025-12-16T17:45:00.000Z",
-  "userId": 1,
-  "user": { "name": "Jean Dupont", ... }
+  "date": "2025-12-16T20:30:00.000Z",
+  "senderId": 1,
+  "receiverId": 2,
+  "sender": {
+    "id": 1,
+    "name": "Alice Martin",
+    "email": "alice.martin@example.com",
+    "balance": 849.50
+  },
+  "receiver": {
+    "id": 2,
+    "name": "Bob Traoré",
+    "email": "bob.traore@example.com",
+    "balance": 650.50
+  }
+}
+```
+
+**Réponse (400) - Solde insuffisant :**
+```json
+{
+  "message": "Solde insuffisant. Solde disponible: 50, Montant demandé: 150.50",
+  "error": "Bad Request",
+  "statusCode": 400
+}
+```
+
+**Réponse (400) - Envoyeur = Récepteur :**
+```json
+{
+  "message": "L'envoyeur et le récepteur doivent être différents",
+  "error": "Bad Request",
+  "statusCode": 400
 }
 ```
 </details>
 
 <details>
-<summary><b>Récupérer les transactions</b></summary>
+<summary><b>Récupérer les transferts</b></summary>
 
 ```bash
-# Toutes les transactions (triées par date DESC)
+# Tous les transferts (triés par date DESC)
 curl http://localhost:3000/transactions
 
-# Transactions d'un utilisateur spécifique
+# Transferts d'un utilisateur (envoyés + reçus)
 curl http://localhost:3000/transactions?userId=1
+```
+
+**Réponse :**
+```json
+[
+  {
+    "id": 1,
+    "amount": 150.50,
+    "status": "completed",
+    "date": "2025-12-16T20:30:00.000Z",
+    "senderId": 1,
+    "receiverId": 2,
+    "sender": {
+      "id": 1,
+      "name": "Alice Martin",
+      "email": "alice.martin@example.com"
+    },
+    "receiver": {
+      "id": 2,
+      "name": "Bob Traoré",
+      "email": "bob.traore@example.com"
+    }
+  }
+]
+```
+</details>
+
+<details>
+<summary><b>Consulter un utilisateur avec son solde</b></summary>
+
+```bash
+curl http://localhost:3000/users/1
+```
+
+**Réponse :**
+```json
+{
+  "id": 1,
+  "name": "Alice Martin",
+  "email": "alice.martin@example.com",
+  "phone": "+2250701234567",
+  "balance": 849.50,
+  "sentTransactions": [...],
+  "receivedTransactions": [...]
+}
 ```
 </details>
 
@@ -263,13 +342,30 @@ curl http://localhost:3000/transactions?userId=1
 
 L'API implémente une validation stricte via **class-validator** :
 
+### Création d'Utilisateur
+
 | Champ | Règles | Exemple |
 |-------|--------|---------|
+| **Name** | Requis, String | `Alice Martin` |
 | **Email** | Valide + Unique | `user@example.com` |
-| **Téléphone** | Requis, String | `+33612345678` |
-| **Montant** | Nombre décimal | `150.50` |
-| **Date** | ISO 8601 | `2025-12-16T17:45:00Z` |
-| **UserId** | Entier existant | `1` |
+| **Téléphone** | Requis, String | `+2250701234567` |
+| **Balance** | Nombre positif, Requis | `1000` |
+
+### Création de Transfert
+
+| Champ | Règles | Exemple |
+|-------|--------|---------|
+| **Montant** | Nombre positif | `150.50` |
+| **Date** | ISO 8601 | `2025-12-16T20:30:00Z` |
+| **SenderId** | Entier existant | `1` |
+| **ReceiverId** | Entier existant, ≠ senderId | `2` |
+
+### Règles de Transfert
+
+- L'envoyeur et le récepteur doivent être différents
+- Le solde de l'envoyeur doit être suffisant
+- Les deux utilisateurs doivent exister dans la base
+- Le transfert est atomique (débit + crédit simultanés)
 
 ### Codes de Réponse HTTP
 
@@ -301,10 +397,6 @@ npx prisma studio
 ```
 > Accessible sur `http://localhost:5555`
 
-### Export de la base de données
-```bash
-pg_dump -U mini_user -h localhost mini_api > backup_$(date +%Y%m%d).sql
-```
 
 ---
 
@@ -329,8 +421,8 @@ pg_dump -U mini_user -h localhost mini_api > backup_$(date +%Y%m%d).sql
 **Albert Coulibaly**
 
 [![Portfolio](https://img.shields.io/badge/Portfolio-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://volbis-s-portefolio.vercel.app/)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/votre-profil)
-[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/votre-profil)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/albert-coulibaly-2789a5324/)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Volbis)
 
 ---
 
@@ -340,7 +432,7 @@ Ce projet est sous licence **MIT**
 
 ---
 
-*Développé avec ❤️ en utilisant NestJS et TypeScript*
+*Développé avec le ❤️*
 
 </div>
 

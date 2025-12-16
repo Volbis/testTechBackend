@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsNumber, IsPositive, IsString } from 'class-validator';
 
 /** DTO de validation pour la création d'utilisateur */
 export class CreateUserDto {
@@ -16,4 +16,10 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'Le téléphone est obligatoire' })
   @IsString({ message: 'Le téléphone doit être une chaîne de caractères' })
   phone: string;
+
+  /** Solde initial du compte */
+  @IsNotEmpty({ message: 'Le solde initial est obligatoire' })
+  @IsNumber({}, { message: 'Le solde doit être un nombre' })
+  @IsPositive({ message: 'Le solde doit être positif' })
+  balance: number;
 }

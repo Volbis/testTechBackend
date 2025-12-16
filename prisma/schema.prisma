@@ -7,18 +7,22 @@ generator client {
 }
 
 model User {
-  id        Int           @id @default(autoincrement())
-  name      String
-  email     String        @unique
-  phone     String
-  transactions Transaction[]
+  id                Int           @id @default(autoincrement())
+  name              String
+  email             String        @unique
+  phone             String
+  balance           Float         @default(0)
+  sentTransactions     Transaction[] @relation("Sender")
+  receivedTransactions Transaction[] @relation("Receiver")
 }
 
 model Transaction {
-  id        Int      @id @default(autoincrement())
-  amount    Float
-  status    String
-  date      DateTime
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  id         Int      @id @default(autoincrement())
+  amount     Float
+  status     String
+  date       DateTime
+  senderId   Int
+  receiverId Int
+  sender     User     @relation("Sender", fields: [senderId], references: [id])
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id])
 }

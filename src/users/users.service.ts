@@ -18,7 +18,16 @@ export class UsersService {
   async findAll() {
     return this.prisma.user.findMany({
       include: {
-        transactions: true,
+        sentTransactions: {
+          include: {
+            receiver: { select: { id: true, name: true, email: true } },
+          },
+        },
+        receivedTransactions: {
+          include: {
+            sender: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
     });
   }
@@ -28,7 +37,16 @@ export class UsersService {
     return this.prisma.user.findUnique({
       where: { id },
       include: {
-        transactions: true,
+        sentTransactions: {
+          include: {
+            receiver: { select: { id: true, name: true, email: true } },
+          },
+        },
+        receivedTransactions: {
+          include: {
+            sender: { select: { id: true, name: true, email: true } },
+          },
+        },
       },
     });
   }
